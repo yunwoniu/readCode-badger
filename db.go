@@ -200,7 +200,7 @@ func Open(opt Options) (*DB, error) {
 			return nil, err
 		}
 		var err error
-		if !opt.BypassLockGuard {
+		if !opt.BypassLockGuard {//目录锁配置，默认是false
 			dirLockGuard, err = acquireDirectoryLock(opt.Dir, lockFile, opt.ReadOnly)
 			if err != nil {
 				return nil, err
@@ -218,7 +218,7 @@ func Open(opt Options) (*DB, error) {
 			if err != nil {
 				return nil, err
 			}
-			if absValueDir != absDir {
+			if absValueDir != absDir {//vlog的目录和db 目录不在一起时，需要两个目录锁
 				valueDirLockGuard, err = acquireDirectoryLock(opt.ValueDir, lockFile, opt.ReadOnly)
 				if err != nil {
 					return nil, err
