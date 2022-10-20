@@ -649,10 +649,10 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 		if s.kv.opt.InMemory {
 			return
 		}
-		if vs.Meta&bitValuePointer > 0 {
+		if vs.Meta&bitValuePointer > 0 {//k，v分离的才需要清理vlog
 			var vp valuePointer
 			vp.Decode(vs.Value)
-			discardStats[vp.Fid] += int64(vp.Len)
+			discardStats[vp.Fid] += int64(vp.Len)//累加待清理的value的的长度
 		}
 	}
 

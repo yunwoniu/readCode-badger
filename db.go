@@ -1346,7 +1346,7 @@ func (db *DB) updateSize(lc *z.Closer) {
 //
 // Note: Every time GC is run, it would produce a spike of activity on the LSM
 // tree.
-func (db *DB) RunValueLogGC(discardRatio float64) error {
+func (db *DB) RunValueLogGC(discardRatio float64) error {//需要调用者自行起一个协程定期去调用vlog的GC
 	if db.opt.InMemory {
 		return ErrGCInMemoryMode
 	}

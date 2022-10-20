@@ -1152,7 +1152,7 @@ func (vlog *valueLog) waitOnGC(lc *z.Closer) {
 
 func (vlog *valueLog) runGC(discardRatio float64) error {
 	select {
-	case vlog.garbageCh <- struct{}{}:
+	case vlog.garbageCh <- struct{}{}:   //len(vlog.garbageCh)=1,控制vlog gc的并发量只能是1
 		// Pick a log file for GC.
 		defer func() {
 			<-vlog.garbageCh

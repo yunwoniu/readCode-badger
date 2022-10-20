@@ -40,7 +40,7 @@ type discardStats struct {
 const discardFname string = "DISCARD"
 
 func InitDiscardStats(opt Options) (*discardStats, error) {
-	fname := filepath.Join(opt.ValueDir, discardFname)
+	fname := filepath.Join(opt.ValueDir, discardFname)//目录下面的DISCARD文件
 
 	// 1GB file can store 67M discard entries. Each entry is 16 bytes.
 	mf, err := z.OpenMmapFile(fname, os.O_CREATE|os.O_RDWR, 1<<20)
@@ -83,21 +83,21 @@ func (lf *discardStats) Swap(i, j int) {
 }
 
 // offset is not slot.
-func (lf *discardStats) get(offset int) uint64 {
+func (lf *discardStats) get(offset int) uint64 {//对discard映射出来的data读，就是对文件进行读
 	return binary.BigEndian.Uint64(lf.Data[offset : offset+8])
 }
-func (lf *discardStats) set(offset int, val uint64) {
+func (lf *discardStats) set(offset int, val uint64) {//对discard映射出来的data写，就是对文件进行写
 	binary.BigEndian.PutUint64(lf.Data[offset:offset+8], val)
 }
 
 // zeroOut would zero out the next slot.
-func (lf *discardStats) zeroOut() {
-	lf.set(lf.nextEmptySlot*16, 0)
-	lf.set(lf.nextEmptySlot*16+8, 0)
+func (lf *discardStats) zeroOut() {//新创建的discard文件的nextEmptySlot=0，对第一个槽位（slot）写0
+	lf.set(lf.nextEmptySlot*16, 0)//第0-7byte 写0
+	lf.set(lf.nextEmptySlot*16+8, 0)//第8-15byte 写0
 }
 
 func (lf *discardStats) maxSlot() int {
-	return len(lf.Data) / 16
+	return len(lf.Data) / 16//每个slot的大小是16bytes
 }
 
 // Update would update the discard stats for the given file id. If discard is
@@ -114,14 +114,14 @@ func (lf *discardStats) Update(fidu uint32, discard int64) int64 {
 	if idx < lf.nextEmptySlot && lf.get(idx*16) == fid {
 		off := idx*16 + 8
 		curDisc := lf.get(off)
-		if discard == 0 {
+		if discard == 0 {//discard = 0 就直接返回当前的discard
 			return int64(curDisc)
 		}
-		if discard < 0 {
+		if discard < 0 {//discard < 0 就直接返回当前的discard为0，并返回0
 			lf.set(off, 0)
 			return 0
 		}
-		lf.set(off, curDisc+uint64(discard))
+		lf.set(off, curDisc+uint64(discard))//discard > 0 时，写入原来存储的discard+当前传入discard，并返回
 		return int64(curDisc + uint64(discard))
 	}
 	if discard <= 0 {
@@ -130,18 +130,18 @@ func (lf *discardStats) Update(fidu uint32, discard int64) int64 {
 	}
 
 	// Could not find the fid. Add the entry.
-	idx = lf.nextEmptySlot
+	idx = lf.nextEmptySlot//没找到，则新加一项，并且存入当前的discard，返回值值也是当前存入的discard
 	lf.set(idx*16, uint64(fid))
 	lf.set(idx*16+8, uint64(discard))
 
 	// Move to next slot.
 	lf.nextEmptySlot++
-	for lf.nextEmptySlot >= lf.maxSlot() {
+	for lf.nextEmptySlot >= lf.maxSlot() {//容量不够存储slot的时候，直接扩容到两倍
 		y.Check(lf.Truncate(2 * int64(len(lf.Data))))
 	}
-	lf.zeroOut()
+	lf.zeroOut()//当前的Slot的16字节置0
 
-	sort.Sort(lf)
+	sort.Sort(lf)//按slot的前8个字节也就是fid来排序
 	return int64(discard)
 }
 
@@ -153,7 +153,7 @@ func (lf *discardStats) Iterate(f func(fid, stats uint64)) {
 }
 
 // MaxDiscard returns the file id with maximum discard bytes.
-func (lf *discardStats) MaxDiscard() (uint32, int64) {
+func (lf *discardStats) MaxDiscard() (uint32, int64) {//找出最大的discard对应的fid
 	lf.Lock()
 	defer lf.Unlock()
 
