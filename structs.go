@@ -161,7 +161,7 @@ func (e *Entry) estimateSizeAndSetThreshold(threshold int64) int64 {
 	}
 	k := int64(len(e.Key))
 	v := int64(len(e.Value))
-	if v < e.valThreshold {
+	if v < e.valThreshold {//len(value)小于阈值时，value直接插在lsm tree里面，不需要ValuePointer
 		return k + v + 2 // Meta, UserMeta
 	}
 	return k + 12 + 2 // 12 for ValuePointer, 2 for metas.

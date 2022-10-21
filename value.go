@@ -224,7 +224,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 	vlog.filesLock.RUnlock()
 
 	vlog.opt.Infof("Rewriting fid: %d", f.fid)
-	wb := make([]*Entry, 0, 1000)
+	wb := make([]*Entry, 0, 1000)//用来记录待清理的vlog文件中还有效的Entry，然后写入当前的db中
 	var size int64
 
 	y.AssertTrue(vlog.db != nil)
@@ -240,7 +240,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 		if err != nil {
 			return err
 		}
-		if discardEntry(e, vs, vlog.db) {
+		if discardEntry(e, vs, vlog.db) {//vs 是从当前数据库中读取出的,e则是待清理的vlog中读取出的,返回值是false则需要把待清理的vlog的值读出来写道db里面去
 			return nil
 		}
 
@@ -252,7 +252,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 		vp.Decode(vs.Value)
 
 		// If the entry found from the LSM Tree points to a newer vlog file, don't do anything.
-		if vp.Fid > f.fid {
+		if vp.Fid > f.fid {//value 指向新的vlog文件
 			return nil
 		}
 		// If the entry found from the LSM Tree points to an offset greater than the one
@@ -270,10 +270,10 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 			ne := new(Entry)
 			// Remove only the bitValuePointer and transaction markers. We
 			// should keep the other bits.
-			ne.meta = e.meta &^ (bitValuePointer | bitTxn | bitFinTxn)
+			ne.meta = e.meta &^ (bitValuePointer | bitTxn | bitFinTxn)//对应的标准位置零
 			ne.UserMeta = e.UserMeta
 			ne.ExpiresAt = e.ExpiresAt
-			ne.Key = append([]byte{}, e.Key...)
+			ne.Key = append([]byte{}, e.Key...)//比先make，再copy看起来更简单
 			ne.Value = append([]byte{}, e.Value...)
 			es := ne.estimateSizeAndSetThreshold(vlog.db.valueThreshold())
 			// Consider size of value as well while considering the total size
@@ -282,7 +282,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 			es += int64(len(e.Value))
 
 			// Ensure length and size of wb is within transaction limits.
-			if int64(len(wb)+1) >= vlog.opt.maxBatchCount ||
+			if int64(len(wb)+1) >= vlog.opt.maxBatchCount ||//触发到批量写入的阈值先批量写一次
 				size+es >= vlog.opt.maxBatchSize {
 				if err := vlog.db.batchSet(wb); err != nil {
 					return err
@@ -347,7 +347,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 		return nil
 	}
 
-	_, err := f.iterate(vlog.opt.ReadOnly, 0, func(e Entry, vp valuePointer) error {
+	_, err := f.iterate(vlog.opt.ReadOnly, 0, func(e Entry, vp valuePointer) error {//只读去遍历待清理的vlog文件中的所有k-v对
 		return fe(e)
 	})
 	if err != nil {
@@ -376,8 +376,8 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 		}
 		i += batchSize
 	}
-	vlog.opt.Infof("Processed %d entries in %d loops", len(wb), loops)
-	vlog.opt.Infof("Total entries: %d. Moved: %d", count, moved)
+	vlog.opt.Infof("Processed %d entries in %d loops", len(wb), loops)//前面超过阈值执行的vlog.db.batchSet没打印，这里觉得不妥
+	vlog.opt.Infof("Total entries: %d. Moved: %d", count, moved)//count 代表待清理的vlog文件中一共有多少entry，其中moved是被清理的
 	vlog.opt.Infof("Removing fid: %d", f.fid)
 	var deleteFileNow bool
 	// Entries written to LSM. Remove the older file now.
@@ -388,17 +388,17 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 			vlog.filesLock.Unlock()
 			return errors.Errorf("Unable to find fid: %d", f.fid)
 		}
-		if vlog.iteratorCount() == 0 {
+		if vlog.iteratorCount() == 0 {//没有活跃iterator则可以直接删除文件
 			delete(vlog.filesMap, f.fid)
 			deleteFileNow = true
-		} else {
+		} else {//有活跃的就先加入到待删除的记录中
 			vlog.filesToBeDeleted = append(vlog.filesToBeDeleted, f.fid)
 		}
 		vlog.filesLock.Unlock()
 	}
 
 	if deleteFileNow {
-		if err := vlog.deleteLogFile(f); err != nil {
+		if err := vlog.deleteLogFile(f); err != nil {//删除vlog文件
 			return err
 		}
 	}
@@ -693,9 +693,9 @@ func (vlog *valueLog) Close() error {
 
 // sortedFids returns the file id's not pending deletion, sorted.  Assumes we have shared access to
 // filesMap.
-func (vlog *valueLog) sortedFids() []uint32 {
+func (vlog *valueLog) sortedFids() []uint32 {//vlog.filesMap 中的key排序
 	toBeDeleted := make(map[uint32]struct{})
-	for _, fid := range vlog.filesToBeDeleted {
+	for _, fid := range vlog.filesToBeDeleted {//读vlog.filesToBeDeleted没有加锁，但是sortedFids再open的时候调用，应该问题也不大
 		toBeDeleted[fid] = struct{}{}
 	}
 	ret := make([]uint32, 0, len(vlog.filesMap))
@@ -1103,15 +1103,15 @@ LOOP:
 	return nil
 }
 
-func discardEntry(e Entry, vs y.ValueStruct, db *DB) bool {
-	if vs.Version != y.ParseTs(e.Key) {
+func discardEntry(e Entry, vs y.ValueStruct, db *DB) bool {//vs 是从当前数据库中读取出的,e则是待清理的vlog中读取出的
+	if vs.Version != y.ParseTs(e.Key) {//key被updata过，版本号是旧的，应该被清理，不需要重新写入db，留在待清理的vlog文件中被清理
 		// Version not found. Discard.
 		return true
 	}
-	if isDeletedOrExpired(vs.Meta, vs.ExpiresAt) {
+	if isDeletedOrExpired(vs.Meta, vs.ExpiresAt) {//是删除key标记的，应该被清理，不需要重新写入db，留在待清理的vlog文件中被清理
 		return true
 	}
-	if (vs.Meta & bitValuePointer) == 0 {
+	if (vs.Meta & bitValuePointer) == 0 {//没有k-v的也需要被清理掉
 		// Key also stores the value in LSM. Discard.
 		return true
 	}
@@ -1132,11 +1132,11 @@ func (vlog *valueLog) doRunGC(lf *logFile) error {
 	_, span := otrace.StartSpan(context.Background(), "Badger.GC")
 	span.Annotatef(nil, "GC rewrite for: %v", lf.path)
 	defer span.End()
-	if err := vlog.rewrite(lf); err != nil {
+	if err := vlog.rewrite(lf); err != nil {//把有效的entry拷贝到当前数据库中，vlog文件直接删除
 		return err
 	}
 	// Remove the file from discardStats.
-	vlog.discardStats.Update(lf.fid, -1)
+	vlog.discardStats.Update(lf.fid, -1)//把已经rewrite的fid对应的discard设置为0
 	return nil
 }
 
