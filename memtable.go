@@ -127,7 +127,7 @@ func (db *DB) openMemTable(fid, flags int) (*memTable, error) {
 		writeAt:  vlogHeaderSize,
 		opt:      db.opt,
 	}
-	lerr := mt.wal.open(filepath, flags, 2*db.opt.MemTableSize)
+	lerr := mt.wal.open(filepath, flags, 2*db.opt.MemTableSize)//*.mem 默认大小是64M
 	if lerr != z.NewFile && lerr != nil {
 		return nil, y.Wrapf(lerr, "While opening memtable: %s", filepath)
 	}
@@ -192,10 +192,10 @@ func (mt *memTable) Put(key []byte, value y.ValueStruct) error {
 	}
 
 	// wal is nil only when badger in running in in-memory mode and we don't need the wal.
-	if mt.wal != nil {
+	if mt.wal != nil {//不是只在内存里面运行，这里肯定不为nil，
 		// If WAL exceeds opt.ValueLogFileSize, we'll force flush the memTable. See logic in
 		// ensureRoomForWrite.
-		if err := mt.wal.writeEntry(mt.buf, entry, mt.opt); err != nil {
+		if err := mt.wal.writeEntry(mt.buf, entry, mt.opt); err != nil {//向.mem里面写entry
 			return y.Wrapf(err, "cannot write entry to WAL file")
 		}
 	}
@@ -625,7 +625,7 @@ func (lf *logFile) bootstrap() error {
 	y.AssertTrue(len(lf.baseIV) == 12)
 
 	// Copy over to the logFile.
-	y.AssertTrue(vlogHeaderSize == copy(lf.Data[0:], buf))
+	y.AssertTrue(vlogHeaderSize == copy(lf.Data[0:], buf))//把20个字节写入，到.mem文件中
 
 	// Zero out the next entry.
 	lf.zeroNextEntry()

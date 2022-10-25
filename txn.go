@@ -385,7 +385,7 @@ func (txn *Txn) modify(e *Entry) error {
 	switch {
 	case !txn.update:
 		return ErrReadOnlyTxn
-	case txn.discarded:
+	case txn.discarded://调用txn.Discarded() txn.discarded 会置为true
 		return ErrDiscardedTxn
 	case len(e.Key) == 0:
 		return ErrEmptyKey
@@ -411,17 +411,17 @@ func (txn *Txn) modify(e *Entry) error {
 
 	// The txn.conflictKeys is used for conflict detection. If conflict detection
 	// is disabled, we don't need to store key hashes in this map.
-	if txn.db.opt.DetectConflicts {
+	if txn.db.opt.DetectConflicts {//默认就是true
 		fp := z.MemHash(e.Key) // Avoid dealing with byte arrays.
 		txn.conflictKeys[fp] = struct{}{}
 	}
 	// If a duplicate entry was inserted in managed mode, move it to the duplicate writes slice.
 	// Add the entry to duplicateWrites only if both the entries have different versions. For
 	// same versions, we will overwrite the existing entry.
-	if oldEntry, ok := txn.pendingWrites[string(e.Key)]; ok && oldEntry.version != e.version {
+	if oldEntry, ok := txn.pendingWrites[string(e.Key)]; ok && oldEntry.version != e.version {//存在待定写入的key中存在相同的key，version不同才会走到这里，不指定
 		txn.duplicateWrites = append(txn.duplicateWrites, oldEntry)
 	}
-	txn.pendingWrites[string(e.Key)] = e
+	txn.pendingWrites[string(e.Key)] = e//txn.SetEntry  txn.Delete都会走到这里
 	return nil
 }
 
@@ -570,7 +570,7 @@ func (txn *Txn) commitAndSend() (func() error, error) {
 			keepTogether = false
 		}
 	}
-	for _, e := range txn.pendingWrites {
+	for _, e := range txn.pendingWrites {//都加上版本号，版本号就是当前commit
 		setVersion(e)
 	}
 	// The duplicateWrites slice will be non-empty only if there are duplicate
@@ -584,14 +584,14 @@ func (txn *Txn) commitAndSend() (func() error, error) {
 	processEntry := func(e *Entry) {
 		// Suffix the keys with commit ts, so the key versions are sorted in
 		// descending order of commit timestamp.
-		e.Key = y.KeyWithTs(e.Key, e.version)
+		e.Key = y.KeyWithTs(e.Key, e.version)//时间戳在后面8个字节加上
 		// Add bitTxn only if these entries are part of a transaction. We
 		// support SetEntryAt(..) in managed mode which means a single
 		// transaction can have entries with different timestamps. If entries
 		// in a single transaction have different timestamps, we don't add the
 		// transaction markers.
 		if keepTogether {
-			e.meta |= bitTxn
+			e.meta |= bitTxn//加上bitTxn标志
 		}
 		entries = append(entries, e)
 	}
@@ -617,7 +617,7 @@ func (txn *Txn) commitAndSend() (func() error, error) {
 			Value: []byte(strconv.FormatUint(commitTs, 10)),
 			meta:  bitFinTxn,
 		}
-		entries = append(entries, e)
+		entries = append(entries, e)//同一个txn最后一个entry  key是txnKey，value是commitTs，mata标志是bitFinTxn
 	}
 
 	req, err := txn.db.sendToWriteCh(entries)
@@ -688,7 +688,7 @@ func (txn *Txn) Commit() error {
 	}
 	defer txn.Discard()
 
-	txnCb, err := txn.commitAndSend()
+	txnCb, err := txn.commitAndSend()//
 	if err != nil {
 		return err
 	}
@@ -789,7 +789,7 @@ func (db *DB) NewTransaction(update bool) *Txn {
 	return db.newTransaction(update, false)
 }
 
-func (db *DB) newTransaction(update, isManaged bool) *Txn {
+func (db *DB) newTransaction(update, isManaged bool) *Txn {//isManaged=false,txn.readTs由数据库字节维护
 	if db.opt.ReadOnly && update {
 		// DB is read-only, force read-only transaction.
 		update = false
@@ -841,7 +841,7 @@ func (db *DB) Update(fn func(txn *Txn) error) error {
 	if db.opt.managedTxns {
 		panic("Update can only be used with managedDB=false.")
 	}
-	txn := db.NewTransaction(true)
+	txn := db.NewTransaction(true)//读写的方式打开
 	defer txn.Discard()
 
 	if err := fn(txn); err != nil {

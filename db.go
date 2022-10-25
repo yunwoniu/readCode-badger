@@ -775,7 +775,7 @@ func (db *DB) writeToLSM(b *request) error {
 					// to be retrieved during iterator prefetch. `bitValuePointer` is only
 					// known to be set in write to LSM when the entry is loaded from a backup
 					// with lower ValueThreshold and its value was stored in the value log.
-					Meta:      entry.meta &^ bitValuePointer,
+					Meta:      entry.meta &^ bitValuePointer,//1<<1位置0
 					UserMeta:  entry.UserMeta,
 					ExpiresAt: entry.ExpiresAt,
 				})
@@ -784,7 +784,7 @@ func (db *DB) writeToLSM(b *request) error {
 			err = db.mt.Put(entry.Key,
 				y.ValueStruct{
 					Value:     b.Ptrs[i].Encode(),
-					Meta:      entry.meta | bitValuePointer,
+					Meta:      entry.meta | bitValuePointer,//1<<1位置1
 					UserMeta:  entry.UserMeta,
 					ExpiresAt: entry.ExpiresAt,
 				})
@@ -859,7 +859,7 @@ func (db *DB) sendToWriteCh(entries []*Entry) (*request, error) {
 	}
 	var count, size int64
 	for _, e := range entries {
-		size += e.estimateSizeAndSetThreshold(db.valueThreshold())
+		size += e.estimateSizeAndSetThreshold(db.valueThreshold())//计算出所有entry的总大小
 		count++
 	}
 	if count >= db.opt.maxBatchCount || size >= db.opt.maxBatchSize {
@@ -874,7 +874,7 @@ func (db *DB) sendToWriteCh(entries []*Entry) (*request, error) {
 	req.Wg.Add(1)
 	req.IncrRef()     // for db write
 	db.writeCh <- req // Handled in doWrites.
-	y.NumPutsAdd(db.opt.MetricsEnabled, int64(len(entries)))
+	y.NumPutsAdd(db.opt.MetricsEnabled, int64(len(entries)))//expvar 变量记录提交的len(entries)个数
 
 	return req, nil
 }
@@ -894,7 +894,7 @@ func (db *DB) handleHandovers(lc *z.Closer) {
 
 func (db *DB) doWrites(lc *z.Closer) {
 	defer lc.Done()
-	pendingCh := make(chan struct{}, 1)
+	pendingCh := make(chan struct{}, 1)//只能有一个协程执行writeRequests
 
 	writeRequests := func(reqs []*request) {
 		if err := db.writeRequests(reqs); err != nil {
@@ -920,7 +920,7 @@ func (db *DB) doWrites(lc *z.Closer) {
 			reqs = append(reqs, r)
 			reqLen.Set(int64(len(reqs)))
 
-			if len(reqs) >= 3*kvWriteChCapacity {
+			if len(reqs) >= 3*kvWriteChCapacity {//提交过来的len(reqs)达到阈值直接进入到writeCase
 				pendingCh <- struct{}{} // blocking.
 				goto writeCase
 			}
@@ -2081,7 +2081,7 @@ func (db *DB) filterPrefixesToDrop(prefixes [][]byte) ([][]byte, error) {
 // Checks if the key is banned. Returns the respective error if the key belongs to any of the banned
 // namepspaces. Else it returns nil.
 func (db *DB) isBanned(key []byte) error {
-	if db.opt.NamespaceOffset < 0 {
+	if db.opt.NamespaceOffset < 0 {//默认db.opt.NamespaceOffset=-1
 		return nil
 	}
 	if len(key) <= db.opt.NamespaceOffset+8 {

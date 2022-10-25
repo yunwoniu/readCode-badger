@@ -845,7 +845,7 @@ func (vlog *valueLog) write(reqs []*request) error {
 	}
 	// Validate writes before writing to vlog. Because, we don't want to partially write and return
 	// an error.
-	if err := vlog.validateWrites(reqs); err != nil {
+	if err := vlog.validateWrites(reqs); err != nil {//校验一下reqs是否会报错
 		return y.Wrapf(err, "while validating writes")
 	}
 
@@ -907,8 +907,8 @@ func (vlog *valueLog) write(reqs []*request) error {
 			buf.Reset()
 
 			e := b.Entries[j]
-			valueSizes = append(valueSizes, int64(len(e.Value)))
-			if e.skipVlogAndSetThreshold(vlog.db.valueThreshold()) {
+			valueSizes = append(valueSizes, int64(len(e.Value)))//记录每个len（value）的长度
+			if e.skipVlogAndSetThreshold(vlog.db.valueThreshold()) {//如果len（value）的长度大于默认值1M则需要写vlog，所以需要有valuePointer
 				b.Ptrs = append(b.Ptrs, valuePointer{})
 				continue
 			}
