@@ -200,12 +200,12 @@ func (mt *memTable) Put(key []byte, value y.ValueStruct) error {
 		}
 	}
 	// We insert the finish marker in the WAL but not in the memtable.
-	if entry.meta&bitFinTxn > 0 {
-		return nil
+	if entry.meta&bitFinTxn > 0 {//不写入memtable
+		return nil//一个txn的最后一个entry，用来做标记，不需要记录到memtable中
 	}
 
 	// Write to skiplist and update maxVersion encountered.
-	mt.sl.Put(key, value)
+	mt.sl.Put(key, value)//向跳表写入
 	if ts := y.ParseTs(entry.Key); ts > mt.maxVersion {
 		mt.maxVersion = ts
 	}
@@ -294,7 +294,7 @@ func (lf *logFile) Truncate(end int64) error {
 // +--------+-----+-------+-------+
 // | header | key | value | crc32 |
 // +--------+-----+-------+-------+
-func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int, error) {
+func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int, error) {//buf也就是文件，先写head，再写key，value，最后写校验位，防止静默数据损坏
 	h := header{
 		klen:      uint32(len(e.Key)),
 		vlen:      uint32(len(e.Value)),
@@ -304,7 +304,7 @@ func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int,
 	}
 
 	hash := crc32.New(y.CastagnoliCrcTable)
-	writer := io.MultiWriter(buf, hash)
+	writer := io.MultiWriter(buf, hash)//writer调用writer方法的时候，buf，hash都会调用
 
 	// encode header.
 	var headerEnc [maxHeaderSize]byte
@@ -337,11 +337,11 @@ func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int,
 
 func (lf *logFile) writeEntry(buf *bytes.Buffer, e *Entry, opt Options) error {
 	buf.Reset()
-	plen, err := lf.encodeEntry(buf, e, lf.writeAt)
+	plen, err := lf.encodeEntry(buf, e, lf.writeAt)//向buf里面写entry
 	if err != nil {
 		return err
 	}
-	y.AssertTrue(plen == copy(lf.Data[lf.writeAt:], buf.Bytes()))
+	y.AssertTrue(plen == copy(lf.Data[lf.writeAt:], buf.Bytes()))//把buf中的数据写入lf.Data中，即文件
 	lf.writeAt += uint32(plen)
 
 	lf.zeroNextEntry()
@@ -548,7 +548,7 @@ loop:
 }
 
 // Zero out the next entry to deal with any crashes.
-func (lf *logFile) zeroNextEntry() {
+func (lf *logFile) zeroNextEntry() {//保证下一个Entry的位置是0
 	z.ZeroOut(lf.Data, int(lf.writeAt), int(lf.writeAt+maxHeaderSize))
 }
 

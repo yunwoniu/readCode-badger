@@ -812,7 +812,7 @@ func (db *DB) writeRequests(reqs []*request) error {
 		}
 	}
 	db.opt.Debugf("writeRequests called. Writing to value log")
-	err := db.vlog.write(reqs)
+	err := db.vlog.write(reqs)//向vlog中写入，len（value）< opt.ValueThreshold 不会写入vlog文件
 	if err != nil {
 		done(err)
 		return err
@@ -843,7 +843,7 @@ func (db *DB) writeRequests(reqs []*request) error {
 			done(err)
 			return y.Wrap(err, "writeRequests")
 		}
-		if err := db.writeToLSM(b); err != nil {
+		if err := db.writeToLSM(b); err != nil {//向LSM tree写入
 			done(err)
 			return y.Wrap(err, "writeRequests")
 		}

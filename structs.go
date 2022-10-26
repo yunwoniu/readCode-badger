@@ -82,9 +82,9 @@ const (
 // +------+----------+------------+--------------+-----------+
 // | Meta | UserMeta | Key Length | Value Length | ExpiresAt |
 // +------+----------+------------+--------------+-----------+
-func (h header) Encode(out []byte) int {
-	out[0], out[1] = h.meta, h.userMeta
-	index := 2
+func (h header) Encode(out []byte) int {//第一个字节meta
+	out[0], out[1] = h.meta, h.userMeta//第二个字节userMeta
+	index := 2//h.klen h.vlen h.expiresAt 都是小的值，使用可以缩小binary.PutUvarint占用的字节数
 	index += binary.PutUvarint(out[index:], uint64(h.klen))
 	index += binary.PutUvarint(out[index:], uint64(h.vlen))
 	index += binary.PutUvarint(out[index:], h.expiresAt)

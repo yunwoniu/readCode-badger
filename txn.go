@@ -593,7 +593,7 @@ func (txn *Txn) commitAndSend() (func() error, error) {
 		if keepTogether {
 			e.meta |= bitTxn//加上bitTxn标志
 		}
-		entries = append(entries, e)
+		entries = append(entries, e)//批量提交的的最后一个entrie的meta 标记为bitTxn
 	}
 
 	// The following debug information is what led to determining the cause of
@@ -617,7 +617,7 @@ func (txn *Txn) commitAndSend() (func() error, error) {
 			Value: []byte(strconv.FormatUint(commitTs, 10)),
 			meta:  bitFinTxn,
 		}
-		entries = append(entries, e)//同一个txn最后一个entry  key是txnKey，value是commitTs，mata标志是bitFinTxn
+		entries = append(entries, e)//同一个txn在尾部加一个entry  key是txnKey，value是commitTs，mata标志是bitFinTxn
 	}
 
 	req, err := txn.db.sendToWriteCh(entries)
