@@ -142,7 +142,7 @@ type Entry struct {
 	Value     []byte
 	ExpiresAt uint64 // time.Unix
 	version   uint64
-	offset    uint32 // offset is an internal field.
+	offset    uint32 // offset is an internal field.//entry在文件中的偏移
 	UserMeta  byte
 	meta      byte
 

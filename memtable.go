@@ -140,7 +140,7 @@ func (db *DB) openMemTable(fid, flags int) (*memTable, error) {
 		}
 	}
 
-	if lerr == z.NewFile {
+	if lerr == z.NewFile {//创建新文件则不需要更新跳表
 		return mt, lerr
 	}
 	err := mt.UpdateSkipList()
@@ -459,7 +459,7 @@ func (lf *logFile) iterate(readOnly bool, offset uint32, fn logEntry) (uint32, e
 	read := &safeRead{
 		k:            make([]byte, 10),
 		v:            make([]byte, 10),
-		recordOffset: offset,
+		recordOffset: offset,//读取文件的偏移
 		lf:           lf,
 	}
 
@@ -492,7 +492,7 @@ loop:
 		vp.Len = uint32(int(e.hlen) + len(e.Key) + len(e.Value) + crc32.Size)
 		read.recordOffset += vp.Len
 
-		vp.Offset = e.offset
+		vp.Offset = e.offset//相对文件的偏移
 		vp.Fid = lf.fid
 
 		switch {

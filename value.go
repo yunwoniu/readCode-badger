@@ -119,7 +119,7 @@ func (t *hashReader) Sum32() uint32 {
 // Entry reads an entry from the provided reader. It also validates the checksum for every entry
 // read. Returns error on failure.
 func (r *safeRead) Entry(reader io.Reader) (*Entry, error) {
-	tee := newHashReader(reader)
+	tee := newHashReader(reader)//调tee reader，里面的hash会调用write方法
 	var h header
 	hlen, err := h.DecodeFrom(tee)
 	if err != nil {
@@ -162,7 +162,7 @@ func (r *safeRead) Entry(reader io.Reader) (*Entry, error) {
 		return nil, err
 	}
 	crc := y.BytesToU32(crcBuf[:])
-	if crc != tee.Sum32() {
+	if crc != tee.Sum32() {//校验数据是否正确
 		return nil, errTruncate
 	}
 	e.meta = h.meta
