@@ -201,14 +201,14 @@ func buildTableOptions(db *DB) table.Options {
 	return table.Options{
 		ReadOnly:             opt.ReadOnly,
 		MetricsEnabled:       db.opt.MetricsEnabled,
-		TableSize:            uint64(opt.BaseTableSize),
-		BlockSize:            opt.BlockSize,
-		BloomFalsePositive:   opt.BloomFalsePositive,
-		ChkMode:              opt.ChecksumVerificationMode,
-		Compression:          opt.Compression,
-		ZSTDCompressionLevel: opt.ZSTDCompressionLevel,
-		BlockCache:           db.blockCache,
-		IndexCache:           db.indexCache,
+		TableSize:            uint64(opt.BaseTableSize),//默认是2M
+		BlockSize:            opt.BlockSize,//默认4096，4k
+		BloomFalsePositive:   opt.BloomFalsePositive,//默认0.01
+		ChkMode:              opt.ChecksumVerificationMode,//默认0
+		Compression:          opt.Compression,//默认1
+		ZSTDCompressionLevel: opt.ZSTDCompressionLevel,//默认1
+		BlockCache:           db.blockCache,//默认256M
+		IndexCache:           db.indexCache,//默认0
 		AllocPool:            db.allocPool,
 		DataKey:              dk,
 	}

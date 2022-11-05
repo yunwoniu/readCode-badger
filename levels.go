@@ -349,10 +349,10 @@ func (s *levelsController) dropPrefixes(prefixes [][]byte) error {
 }
 
 func (s *levelsController) startCompact(lc *z.Closer) {
-	n := s.kv.opt.NumCompactors
+	n := s.kv.opt.NumCompactors//默认是4
 	lc.AddRunning(n - 1)
 	for i := 0; i < n; i++ {
-		go s.runCompactor(i, lc)
+		go s.runCompactor(i, lc)//启动4个协程
 	}
 }
 
@@ -377,7 +377,7 @@ type targets struct {
 // BaseLevelSize.
 func (s *levelsController) levelTargets() targets {
 	adjust := func(sz int64) int64 {
-		if sz < s.kv.opt.BaseLevelSize {
+		if sz < s.kv.opt.BaseLevelSize {//opt.BaseLevelSize默认是10M
 			return s.kv.opt.BaseLevelSize
 		}
 		return sz
@@ -388,28 +388,28 @@ func (s *levelsController) levelTargets() targets {
 		fileSz:   make([]int64, len(s.levels)),
 	}
 	// DB size is the size of the last level.
-	dbSize := s.lastLevel().getTotalSize()
+	dbSize := s.lastLevel().getTotalSize()//最底层的总大小
 	for i := len(s.levels) - 1; i > 0; i-- {
 		ltarget := adjust(dbSize)
-		t.targetSz[i] = ltarget
-		if t.baseLevel == 0 && ltarget <= s.kv.opt.BaseLevelSize {
+		t.targetSz[i] = ltarget//压缩后，对应的层的大小
+		if t.baseLevel == 0 && ltarget <= s.kv.opt.BaseLevelSize {//当该层target小于默认10M时，则该层是t.baseLevel
 			t.baseLevel = i
 		}
-		dbSize /= int64(s.kv.opt.LevelSizeMultiplier)
+		dbSize /= int64(s.kv.opt.LevelSizeMultiplier)//opt.LevelSizeMultiplier默认是10
 	}
 
-	tsz := s.kv.opt.BaseTableSize
+	tsz := s.kv.opt.BaseTableSize//默认opt.BaseTableSize=2M
 	for i := 0; i < len(s.levels); i++ {
 		if i == 0 {
 			// Use MemTableSize for Level 0. Because at Level 0, we stop compactions based on the
 			// number of tables, not the size of the level. So, having a 1:1 size ratio between
 			// memtable size and the size of L0 files is better than churning out 32 files per
 			// memtable (assuming 64MB MemTableSize and 2MB BaseTableSize).
-			t.fileSz[i] = s.kv.opt.MemTableSize
-		} else if i <= t.baseLevel {
+			t.fileSz[i] = s.kv.opt.MemTableSize//默认opt.MemTableSize=64M，L0是64M
+		} else if i <= t.baseLevel {//t.baseLevel层及以下都是2M
 			t.fileSz[i] = tsz
 		} else {
-			tsz *= int64(s.kv.opt.TableSizeMultiplier)
+			tsz *= int64(s.kv.opt.TableSizeMultiplier)//默认opt.TableSizeMultiplier=2
 			t.fileSz[i] = tsz
 		}
 	}
@@ -427,7 +427,7 @@ func (s *levelsController) levelTargets() targets {
 	b := t.baseLevel
 	lvl := s.levels
 	if b < len(lvl)-1 && lvl[b].getTotalSize() == 0 && lvl[b+1].getTotalSize() < t.targetSz[b+1] {
-		t.baseLevel++
+		t.baseLevel++//如果baseLevel层是空，并且baseLevel层的下一层小于t.targetSz[b+1]，则t.baseLevel++
 	}
 	return t
 }
@@ -435,9 +435,9 @@ func (s *levelsController) levelTargets() targets {
 func (s *levelsController) runCompactor(id int, lc *z.Closer) {
 	defer lc.Done()
 
-	randomDelay := time.NewTimer(time.Duration(rand.Int31n(1000)) * time.Millisecond)
+	randomDelay := time.NewTimer(time.Duration(rand.Int31n(1000)) * time.Millisecond)//范围是0-1s
 	select {
-	case <-randomDelay.C:
+	case <-randomDelay.C://为了让4个压缩协程尽可能的不在相同的时间启动
 	case <-lc.HasBeenClosed():
 		randomDelay.Stop()
 		return
@@ -463,7 +463,7 @@ func (s *levelsController) runCompactor(id int, lc *z.Closer) {
 	}
 
 	run := func(p compactionPriority) bool {
-		err := s.doCompact(id, p)
+		err := s.doCompact(id, p)//id号：0，1，2，3
 		switch err {
 		case nil:
 			return true
@@ -511,7 +511,7 @@ func (s *levelsController) runCompactor(id int, lc *z.Closer) {
 		case <-ticker.C:
 			count++
 			// Each ticker is 50ms so 50*200=10seconds.
-			if s.kv.opt.LmaxCompaction && id == 2 && count >= 200 {
+			if s.kv.opt.LmaxCompaction && id == 2 && count >= 200 {//10s执行一次
 				tryLmaxToLmaxCompaction()
 				count = 0
 			} else {
@@ -550,7 +550,7 @@ func (s *levelsController) pickCompactLevels() (prios []compactionPriority) {
 	}
 
 	// Add L0 priority based on the number of tables.
-	addPriority(0, float64(s.levels[0].numTables())/float64(s.kv.opt.NumLevelZeroTables))
+	addPriority(0, float64(s.levels[0].numTables())/float64(s.kv.opt.NumLevelZeroTables))//opt.NumLevelZeroTables默认是5
 
 	// All other levels use size to calculate priority.
 	for i := 1; i < len(s.levels); i++ {
@@ -559,7 +559,7 @@ func (s *levelsController) pickCompactLevels() (prios []compactionPriority) {
 
 		l := s.levels[i]
 		sz := l.getTotalSize() - delSize
-		addPriority(i, float64(sz)/float64(t.targetSz[i]))
+		addPriority(i, float64(sz)/float64(t.targetSz[i]))//L1->L6层剩余的size
 	}
 	y.AssertTrue(len(prios) == len(s.levels))
 
