@@ -355,7 +355,7 @@ func Open(opt Options) (*DB, error) {
 		db.lc.startCompact(db.closers.compactors)
 
 		db.closers.memtable = z.NewCloser(1)
-		go func() {
+		go func() {//接收来自db.flushChan管道
 			_ = db.flushMemtable(db.closers.memtable) // Need levels controller to be up.
 		}()
 		// Flush them to disk asap.
@@ -1002,7 +1002,7 @@ func (db *DB) ensureRoomForWrite() error {
 	}
 
 	select {
-	case db.flushChan <- flushTask{mt: db.mt}:
+	case db.flushChan <- flushTask{mt: db.mt}://db.flushChan的容量是opt.NumMemtables
 		db.opt.Debugf("Flushing memtable, mt.size=%d size of flushChan: %d\n",
 			db.mt.sl.MemSize(), len(db.flushChan))
 		// We manage to push this task. Let's modify imm.
@@ -1151,7 +1151,7 @@ func (db *DB) handleFlushTask(ft flushTask) error {
 		data := builder.Finish()
 		tbl, err = table.OpenInMemoryTable(data, fileID, &bopts)
 	} else {
-		tbl, err = table.CreateTable(table.NewFilename(fileID, db.opt.Dir), builder)
+		tbl, err = table.CreateTable(table.NewFilename(fileID, db.opt.Dir), builder)//.sst
 	}
 	if err != nil {
 		return y.Wrap(err, "error while creating table")

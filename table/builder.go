@@ -129,7 +129,7 @@ const maxAllocatorInitialSz = 256 << 20
 func NewTableBuilder(opts Options) *Builder {
 	sz := 2 * int(opts.TableSize)//默认opts.TableSize=2M
 	if sz > maxAllocatorInitialSz {
-		sz = maxAllocatorInitialSz
+		sz = maxAllocatorInitialSz//256M
 	}
 	b := &Builder{
 		alloc: opts.AllocPool.Get(sz, "TableBuilder"),
@@ -147,7 +147,7 @@ func NewTableBuilder(opts Options) *Builder {
 		return b
 	}
 
-	count := 2 * runtime.NumCPU()
+	count := 2 * runtime.NumCPU()//len（b.blockChan）是四倍的cpu数量
 	b.blockChan = make(chan *bblock, count*2)
 
 	b.wg.Add(count)
