@@ -46,7 +46,7 @@ var sanityText = []byte("Hello Badger")
 // KeyRegistry used to maintain all the data keys.
 type KeyRegistry struct {
 	sync.RWMutex
-	dataKeys    map[uint64]*pb.DataKey
+	dataKeys    map[uint64]*pb.DataKey//建立map，k=KeyId，v=*pb.DataKey
 	lastCreated int64 //lastCreated is the timestamp(seconds) of the last data key generated.
 	nextKeyID   uint64
 	fp          *os.File
@@ -104,7 +104,7 @@ func OpenKeyRegistry(opt KeyRegistryOptions) (*KeyRegistry, error) {
 			return kr, nil
 		}
 		// Writing the key registry to the file.
-		if err := WriteKeyRegistry(kr, opt); err != nil {
+		if err := WriteKeyRegistry(kr, opt); err != nil {//先写16字节的随机值，再写"Hello Badger"
 			return nil, y.Wrapf(err, "Error while writing key registry.")
 		}
 		fp, err = y.OpenExistingFile(path, flags)
@@ -148,7 +148,7 @@ func newKeyRegistryIterator(fp *os.File, encryptionKey []byte) (*keyRegistryIter
 }
 
 // validRegistry checks that given encryption key is valid or not.
-func validRegistry(fp *os.File, encryptionKey []byte) error {
+func validRegistry(fp *os.File, encryptionKey []byte) error {//第16字节后读出"Hello Badger"则数据无误
 	iv := make([]byte, aes.BlockSize)
 	var err error
 	if _, err = fp.Read(iv); err != nil {
@@ -181,7 +181,7 @@ func (kri *keyRegistryIterator) next() (*pb.DataKey, error) {
 		}
 		return nil, err
 	}
-	l := int64(binary.BigEndian.Uint32(kri.lenCrcBuf[0:4]))
+	l := int64(binary.BigEndian.Uint32(kri.lenCrcBuf[0:4]))//前4个字节是pb.DataKey的长度
 	// Read protobuf data.
 	data := make([]byte, l)
 	if _, err = kri.fp.Read(data); err != nil {
@@ -192,7 +192,7 @@ func (kri *keyRegistryIterator) next() (*pb.DataKey, error) {
 		return nil, err
 	}
 	// Check checksum.
-	if crc32.Checksum(data, y.CastagnoliCrcTable) != binary.BigEndian.Uint32(kri.lenCrcBuf[4:]) {
+	if crc32.Checksum(data, y.CastagnoliCrcTable) != binary.BigEndian.Uint32(kri.lenCrcBuf[4:]) {//后4个字节是pb.DataKey的crc校验
 		return nil, y.Wrapf(y.ErrChecksumMismatch, "Error while checking checksum for data key.")
 	}
 	dataKey := &pb.DataKey{}
@@ -210,7 +210,7 @@ func (kri *keyRegistryIterator) next() (*pb.DataKey, error) {
 
 // readKeyRegistry will read the key registry file and build the key registry struct.
 func readKeyRegistry(fp *os.File, opt KeyRegistryOptions) (*KeyRegistry, error) {
-	itr, err := newKeyRegistryIterator(fp, opt.EncryptionKey)
+	itr, err := newKeyRegistryIterator(fp, opt.EncryptionKey)//opt.EncryptionKey默认是nil
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func readKeyRegistry(fp *os.File, opt KeyRegistryOptions) (*KeyRegistry, error) 
 			kr.lastCreated = dk.CreatedAt
 		}
 		// No need to lock since we are building the initial state.
-		kr.dataKeys[dk.KeyId] = dk
+		kr.dataKeys[dk.KeyId] = dk//建立map，k=KeyId，v=*pb.DataKey
 		// Forward the iterator.
 		dk, err = itr.next()
 	}
@@ -249,7 +249,7 @@ Structure of Key Registry.
 // It is okay to give closed key registry. Since, it's using only the datakey.
 func WriteKeyRegistry(reg *KeyRegistry, opt KeyRegistryOptions) error {
 	buf := &bytes.Buffer{}
-	iv, err := y.GenerateIV()
+	iv, err := y.GenerateIV()//len(iv)=16,内容是随机值
 	y.Check(err)
 	// Encrypt sanity text if the encryption key is presents.
 	eSanity := sanityText
@@ -271,7 +271,7 @@ func WriteKeyRegistry(reg *KeyRegistry, opt KeyRegistryOptions) error {
 	}
 	tmpPath := filepath.Join(opt.Dir, KeyRegistryRewriteFileName)
 	// Open temporary file to write the data and do atomic rename.
-	fp, err := y.OpenTruncFile(tmpPath, true)
+	fp, err := y.OpenTruncFile(tmpPath, true)//向临时文件写，再用rename，保证多次写的原子性
 	if err != nil {
 		return y.Wrapf(err, "Error while opening tmp file in WriteKeyRegistry")
 	}

@@ -127,7 +127,7 @@ const maxAllocatorInitialSz = 256 << 20
 
 // NewTableBuilder makes a new TableBuilder.
 func NewTableBuilder(opts Options) *Builder {
-	sz := 2 * int(opts.TableSize)
+	sz := 2 * int(opts.TableSize)//默认opts.TableSize=2M
 	if sz > maxAllocatorInitialSz {
 		sz = maxAllocatorInitialSz
 	}
@@ -143,7 +143,7 @@ func NewTableBuilder(opts Options) *Builder {
 
 	// If encryption or compression is not enabled, do not start compression/encryption goroutines
 	// and write directly to the buffer.
-	if b.opts.Compression == options.None && b.opts.DataKey == nil {
+	if b.opts.Compression == options.None && b.opts.DataKey == nil {//默认b.opts.Compression=1，不会在这里返回
 		return b
 	}
 
@@ -152,7 +152,7 @@ func NewTableBuilder(opts Options) *Builder {
 
 	b.wg.Add(count)
 	for i := 0; i < count; i++ {
-		go b.handleBlock()
+		go b.handleBlock()//b.blockChan中的数据bblock.data进行加密压缩，bblock.end改为压缩加密后的大小
 	}
 	return b
 }
@@ -433,7 +433,7 @@ func (b *Builder) Done() buildData {
 		close(b.blockChan)
 	}
 	// Wait for block handler to finish.
-	b.wg.Wait()
+	b.wg.Wait()//等待数据压缩加密完
 
 	if len(b.blockList) == 0 {
 		return buildData{}

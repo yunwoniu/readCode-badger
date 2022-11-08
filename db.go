@@ -332,7 +332,7 @@ func Open(opt Options) (*DB, error) {
 	db.closers.updateSize = z.NewCloser(1)
 	go db.updateSize(db.closers.updateSize)
 
-	if err := db.openMemTables(db.opt); err != nil {
+	if err := db.openMemTables(db.opt); err != nil {//
 		return nil, y.Wrapf(err, "while opening memtables")
 	}
 
@@ -997,7 +997,7 @@ func (db *DB) ensureRoomForWrite() error {
 	defer db.lock.Unlock()
 
 	y.AssertTrue(db.mt != nil) // A nil mt indicates that DB is being closed.
-	if !db.mt.isFull() {
+	if !db.mt.isFull() {//默认mt.opt.MemTableSize=64，mt.wal.writeAt大于64M则isFull是true
 		return nil
 	}
 

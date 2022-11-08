@@ -196,7 +196,7 @@ func DefaultOptions(path string) Options {
 
 func buildTableOptions(db *DB) table.Options {
 	opt := db.opt
-	dk, err := db.registry.LatestDataKey()
+	dk, err := db.registry.LatestDataKey()//kr.opt.EncryptionKey=nil,所以dk也是nil
 	y.Check(err)
 	return table.Options{
 		ReadOnly:             opt.ReadOnly,
