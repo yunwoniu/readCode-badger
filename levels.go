@@ -1191,7 +1191,7 @@ func (s *levelsController) fillTablesL0ToLbase(cd *compactDef) bool {
 	}
 
 	var out []*table.Table
-	if len(cd.dropPrefixes) > 0 {
+	if len(cd.dropPrefixes) > 0 {//正常业务这里就是0
 		// Use all tables if drop prefix is set. We don't want to compact only a
 		// sub-range. We want to compact all the tables.
 		out = top
@@ -1209,14 +1209,14 @@ func (s *levelsController) fillTablesL0ToLbase(cd *compactDef) bool {
 			}
 		}
 	}
-	cd.thisRange = getKeyRange(out...)
+	cd.thisRange = getKeyRange(out...)//L0 层的范围
 	cd.top = out
 
-	left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, cd.thisRange)
+	left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, cd.thisRange)//找出cd.thisRange.left，cd.thisRange.right在cd.nextLevel.tables中的索引
 	cd.bot = make([]*table.Table, right-left)
 	copy(cd.bot, cd.nextLevel.tables[left:right])
 
-	if len(cd.bot) == 0 {
+	if len(cd.bot) == 0 {//cd.thisRange范围在cd.nextLevel的一个Table中
 		cd.nextRange = cd.thisRange
 	} else {
 		cd.nextRange = getKeyRange(cd.bot...)
