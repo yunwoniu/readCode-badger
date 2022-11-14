@@ -87,7 +87,7 @@ func newLevelsController(db *DB, mf *Manifest) (*levelsController, error) {
 
 	for i := 0; i < db.opt.MaxLevels; i++ {
 		s.levels[i] = newLevelHandler(db, i)
-		s.cstatus.levels[i] = new(levelCompactStatus)
+		s.cstatus.levels[i] = new(levelCompactStatus)//记录每一层的
 	}
 
 	if db.opt.InMemory {
@@ -1209,7 +1209,7 @@ func (s *levelsController) fillTablesL0ToLbase(cd *compactDef) bool {
 			}
 		}
 	}
-	cd.thisRange = getKeyRange(out...)//L0 层的范围
+	cd.thisRange = getKeyRange(out...)//L0 层的tables[0]起到没有交集的tables[i]
 	cd.top = out
 
 	left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, cd.thisRange)//找出cd.thisRange.left，cd.thisRange.right在cd.nextLevel.tables中的索引

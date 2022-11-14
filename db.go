@@ -267,7 +267,7 @@ func Open(opt Options) (*DB, error) {
 	}()
 
 	if opt.BlockCacheSize > 0 {
-		numInCache := opt.BlockCacheSize / int64(opt.BlockSize)
+		numInCache := opt.BlockCacheSize / int64(opt.BlockSize)//默认是256M/4M=64
 		if numInCache == 0 {
 			// Make the value of this variable at least one since the cache requires
 			// the number of counters to be greater than zero.
@@ -854,7 +854,7 @@ func (db *DB) writeRequests(reqs []*request) error {
 }
 
 func (db *DB) sendToWriteCh(entries []*Entry) (*request, error) {
-	if atomic.LoadInt32(&db.blockWrites) == 1 {
+	if atomic.LoadInt32(&db.blockWrites) == 1 {//blockWrite会把db.blockWrites置位1，用来阻塞写
 		return nil, ErrBlockedWrites
 	}
 	var count, size int64

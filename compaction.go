@@ -207,7 +207,7 @@ func (cs *compactStatus) compareAndAdd(_ thisAndNextLevelRLocked, cd compactDef)
 	nextLevel.ranges = append(nextLevel.ranges, cd.nextRange)
 	thisLevel.delSize += cd.thisSize
 	for _, t := range append(cd.top, cd.bot...) {
-		cs.tables[t.ID()] = struct{}{}
+		cs.tables[t.ID()] = struct{}{}//去重，表示Table.ID处于合并中的状态
 	}
 	return true
 }
